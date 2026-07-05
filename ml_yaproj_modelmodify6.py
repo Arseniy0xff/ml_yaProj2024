@@ -78,7 +78,7 @@ class HumanPoseDataset(Dataset):
     def __getitem__(self, idx):
         img_name = os.path.join(self.img_dir, str(self.data.iloc[idx, 0])) + '.jpg'
         image = Image.open(img_name).convert("RGB")
-        label = int(self.data.iloc[idx, 1])  # Метка класса
+        label = int(self.data.iloc[idx, 1])  # Class label
 
         if self.transform:
             image = self.transform(image)
@@ -104,15 +104,15 @@ class SkipConnectionBlock(nn.Module):
         super(SkipConnectionBlock, self).__init__()
         self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
         self.bn1 = nn.BatchNorm2d(out_channels)
-        self.dropout1 = nn.Dropout2d(0.3)  # Добавлено dropout
+        self.dropout1 = nn.Dropout2d(0.3)  # added dropout
 
         self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
         self.bn2 = nn.BatchNorm2d(out_channels)
-        self.dropout2 = nn.Dropout2d(0.3)  # Добавлено dropout
+        self.dropout2 = nn.Dropout2d(0.3)  # added dropout
 
-        self.se = SEBlock(out_channels)  # Добавляем SEBlock
+        self.se = SEBlock(out_channels)  # add SEBlock
 
-        # Используем skip_conv только если количество каналов не совпадает
+        # We use skip_conv only if the number of channels does not match
         self.use_skip_conv = in_channels != out_channels
         if self.use_skip_conv:
             self.skip_conv = nn.Conv2d(in_channels, out_channels, kernel_size=1)
@@ -120,10 +120,10 @@ class SkipConnectionBlock(nn.Module):
     def forward(self, x):
         identity = self.skip_conv(x) if self.use_skip_conv else x
         out = F.relu(self.bn1(self.conv1(x)))
-        out = self.dropout1(out)  # Dropout после первого слоя
+        out = self.dropout1(out)  # Dropout after first layer
         out = self.bn2(self.conv2(out))
-        out = self.dropout2(out)  # Dropout после второго слоя
-        out = self.se(out)  # Применяем SEBlock
+        out = self.dropout2(out)  # Dropout after second layer
+        out = self.se(out)  # apply SEBlock
         out += identity
         return F.relu(out)
 
@@ -152,13 +152,13 @@ class MyModel(nn.Module):
 
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(1024, 1024),  # Увеличено число нейронов
-            nn.BatchNorm1d(1024),  # Добавлен BatchNorm
+            nn.Linear(1024, 1024),  # increased number of neurons
+            nn.BatchNorm1d(1024),  # added BatchNorm
             nn.ReLU(),
             nn.Dropout(0.5),
 
-            nn.Linear(1024, 256),  # Увеличено число нейронов
-            nn.BatchNorm1d(256),  # Добавлен BatchNorm
+            nn.Linear(1024, 256),  # increased number of neurons
+            nn.BatchNorm1d(256),  # added BatchNorm
             nn.ReLU(),
             nn.Dropout(0.5),
 
@@ -183,7 +183,7 @@ train_csv = os.path.join(data_dir, "train_answers.csv")
 categories_csv = os.path.join(data_dir, "activity_categories.csv")
 
 
-# Загрузка категорий
+# Loading categories
 categories = pd.read_csv(categories_csv)
 class_names = {row['id']: row['category'] for _, row in categories.iterrows()}
 
@@ -207,7 +207,7 @@ transform_modify = transforms.Compose([
 full_dataset_modify = HumanPoseDataset(csv_file=train_csv, img_dir=train_img_dir, transform=transform_modify)
 full_dataset_orgin = HumanPoseDataset(csv_file=train_csv, img_dir=train_img_dir, transform=transform_orgin)
 
-# комбинирование датасетов для увеличения объема и устойчивости к данным
+# Combining datasets to increase data volume and robustness
 combined_dataset = ConcatDataset([full_dataset_orgin, full_dataset_modify])
 train_dataset, valid_dataset = random_split(combined_dataset, [0.8, 0.2])
 
@@ -233,7 +233,7 @@ best_model_path = '/content/drive/MyDrive/best_model_m6_e23Plus.pth'
 
 num_epochs = 15
 
-# Загрузка модели из файла для дообучения
+# Loading a model from a file for further training
 checkpoint_path = "best_model_m6_e23Plus.pth"
 if os.path.exists(checkpoint_path):
     print("Loading model for fine-tuning...")
@@ -273,7 +273,7 @@ for epoch in range(num_epochs):
     val_true = []
     val_pred = []
 
-    # валидационный цикл, когда мы оцениваем качество работы модели на отложенной выборке
+    # validation cycle, when we evaluate the quality of the model's performance on a delayed sample
     with torch.no_grad():
         for batch in tqdm(valid_dataloader):
             inputs, labels = batch
@@ -292,17 +292,16 @@ for epoch in range(num_epochs):
     val_losses.append(val_running_loss / len(valid_dataloader))
     val_f1_scores.append(val_f1)
 
-    # если получившаяся модель лучше предыдущей, сохраним чекпоинт
+    # If the resulting model is better than the previous one, we save the checkpoint
     if val_f1 > best_val_f1:
         best_val_f1 = val_f1
         torch.save(model.state_dict(), best_model_path)
         print(f'New best model saved with F1: {best_val_f1:.4f}')
 
-
-    # выведем в консоль получившиеся результаты на отдельной эпохе
     print(f'Epoch [{epoch+1}/{num_epochs}], '
           f'Train Loss: {train_losses[-1]:.4f}, Train F1: {train_f1:.4f}, '
           f'Val Loss: {val_losses[-1]:.4f}, Val F1: {val_f1:.4f}')
+
 
 plt.figure(figsize=(14, 5))
 
@@ -343,15 +342,13 @@ class InferenceDataset(Dataset):
 
         return id, image
 
-# best_model_path = 'best_model.pth'
 
 infer_dataset = InferenceDataset(test_img_names, test_img_dir, transform=transform_orgin)
 infer_dataloader = DataLoader(infer_dataset, batch_size=64, shuffle=False)
 
-# Инициализируем нашу модель и загрузим в неё лучшие после эксперимента веса
+
 model = MyModel(num_classes=20).to(device)
 model.load_state_dict(torch.load(best_model_path))
-# Не забудем перевести модель в режим предсказания, а не обучения.
 model.eval()
 
 results = []
@@ -369,8 +366,8 @@ df_results = pd.DataFrame(results)
 print(df_results)
 df_results
 
-df_results.to_csv("submission.csv", index=False)
 
+df_results.to_csv("submission.csv", index=False)
 files.download(best_model_path)
 files.download('submission.csv')
 
